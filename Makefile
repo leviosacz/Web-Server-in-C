@@ -1,2 +1,7 @@
+CC=gcc
+CFLAGS= -pthread
+
 all: httpServer
-	gcc httpServer.c -o httpServer -lpthread
+
+httpServer: httpServer.c
+	$(CC) $(CFLAGS) httpServer.c -o httpServer
