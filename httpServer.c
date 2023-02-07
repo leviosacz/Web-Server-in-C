@@ -12,21 +12,24 @@
 #define MAX 8000
 #define BUFFER_SIZE 8000
 
-typedef struct Thread_args {
+struct args {
 	char *document_root;
 	int connfd;
-} Thread_args;
+};
 
-void serveFile(int connfd, const char *fileLocation);
 void serveClient(int connfd, const char *fileLocation){
 
 	FILE *filePtr = fopen(fileLocation,"r");
 	if (NULL == filePtr){
-		perror("Server Error: failed to open requested file\n");
+		perror("Failed: ");
 		return;
 	}
 	int fd = fileno(filePtr);
-	printf("Server Success: succesfully opened requested file:%d\n",fd);
+	printf("server succesfully opened requested file:%d\n",fd);
+
+	struct stat st;
+	fstat(fd,&st);
+	off_t file_size = st.st_size;
 
 	char file_buff[BUFFER_SIZE];
 
@@ -41,12 +44,13 @@ void serveClient(int connfd, const char *fileLocation){
 	fclose(filePtr);
 }
 
-void *handleRequestThread(void *args){
+void *handleRequestThread(void *thread_args){
 
 	//parsing supplied arguments
-	Thread_args *thread_args = (Thread_args*) args;
-	char *document_root = thread_args->document_root;
-	int connfd = thread_args->connfd;
+	struct args *passed_args;
+	passed_args = (struct args*) thread_args;
+	char *document_root = passed_args->document_root;
+	int connfd = passed_args->connfd;
 
 
 	//first parse the http header sent by the client
@@ -54,17 +58,36 @@ void *handleRequestThread(void *args){
 	bzero(requestBuffer,BUFFER_SIZE);
 	read(connfd, requestBuffer, sizeof(requestBuffer));
 
+	//Log the client request on the server's console log
+	printf("Server recieved client request\n");
+	printf("Client Request Header:\n");
+	printf("%s\n",requestBuffer);
+
+	//get the time from the server
+	char timestr[200];
+	time_t now = time(0);
+	struct tm tm = *gmtime(&now);
+	strftime(timestr, 200, "%a, %d %b %Y %H:%M:%S %Z", &tm);
+	printf("Server time: %s\n", timestr);
+
 	char *httpMethod = strtok(requestBuffer, " ");	
 	char *requestedFile = strtok(NULL, " ");
 
 	//check for any bad requests
 	if(strncmp(requestedFile,"//",2)==0){
-		char responseHeader[1000] = "HTTP/1.0 400 Bad Request\nContent-Type: text/html;charset=UTF-8\nContent-Length: 100000000\n\n";
+		char responseHeader[1000] = "HTTP/1.0 400 Bad Request\nContent-Type: text/html;charset=UTF-8\nContent-Length: 100000000\r\n";
+
+		strcat(responseHeader,"Date: ");
+		strcat(responseHeader,timestr);
+		strcat(responseHeader,"\r\n\r\n");
+		//strcat(responseHeader,"Date: ");
+		//strcat(responseHeader,timestr);
+		//strcat(responseHeader,"\n\n");
 		write(connfd, responseHeader, strlen(responseHeader));
 		char formattedFile[BUFFER_SIZE];
 		strcat(formattedFile,document_root);
 		strcat(formattedFile,"/http400.html");
-		serveFile(connfd,formattedFile);
+		serveClient(connfd,formattedFile);
 		close(connfd);
 		pthread_exit(NULL);
 		return NULL;
@@ -73,12 +96,19 @@ void *handleRequestThread(void *args){
 
 	//first handle the default / loading page
 	if(strcmp(requestedFile,"/")==0){
-		char responseHeader[1000] = "HTTP/1.0 200 OK\nContent-Type: text/html;charset=UTF-8\nContent-Length: 100000000\n\n";
+		char responseHeader[1000] = "HTTP/1.0 200 OK\nContent-Type: text/html;charset=UTF-8\nContent-Length: 100000000\r\n";
+
+		strcat(responseHeader,"Date: ");
+		strcat(responseHeader,timestr);
+		strcat(responseHeader,"\r\n\r\n");
+		//strcat(responseHeader,"Date: ");
+		//strcat(responseHeader,timestr);
+		//strcat(responseHeader,"\n\n");
 		write(connfd, responseHeader, strlen(responseHeader));
 		char formattedFile[BUFFER_SIZE];
 		strcat(formattedFile,document_root);
 		strcat(formattedFile,"/index.html");
-		serveFile(connfd,formattedFile);
+		serveClient(connfd,formattedFile);
 		close(connfd);
 		pthread_exit(NULL);
 		return NULL;
