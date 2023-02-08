@@ -34,7 +34,7 @@ The program runs on an infinite loop where the server accepts client connections
 
    `./httpServer -document_root document_root -port 8888`
 
-   8888 can be replaced with any valid port number. Note that ports between 8000 and 9999 are recommended for testing purposes.
+   "8888" can be replaced with any valid port number. Note that ports between 8000 and 9999 are recommended for testing purposes.
 
 
 
